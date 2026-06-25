@@ -4,6 +4,7 @@ import { useState } from "react";
 import { bioticDoc } from "@/lib/biotic";
 import type { ExtractedDoc } from "@/lib/types";
 import { BioticReader } from "@/components/BioticReader";
+import { ExportControls } from "@/components/ExportControls";
 
 // PasteTool — paste raw text and trigger an EXPLICIT conversion (INPUT-01, D-03:
 // not live-as-you-type). Owns the paste/convert state and renders BioticReader
@@ -23,6 +24,9 @@ function toDoc(text: string): ExtractedDoc {
 export function PasteTool() {
   const [text, setText] = useState("");
   const [html, setHtml] = useState<string | null>(null);
+  // The exact plain text converted — retained at convert time for the clipboard
+  // text/plain payload (the textarea may be edited after a conversion).
+  const [convertedPlain, setConvertedPlain] = useState("");
   const [busy, setBusy] = useState(false);
   const [nudge, setNudge] = useState(false);
 
@@ -43,6 +47,7 @@ export function PasteTool() {
     // large pastes — never freeze silently. Instant pastes may swap imperceptibly.
     await new Promise((resolve) => setTimeout(resolve, 0));
     setHtml(bioticDoc(toDoc(text)));
+    setConvertedPlain(text);
     setBusy(false);
   }
 
@@ -91,6 +96,10 @@ export function PasteTool() {
       </div>
 
       <BioticReader html={html} />
+
+      {html !== null && html.trim() !== "" && (
+        <ExportControls html={html} plain={convertedPlain} />
+      )}
     </section>
   );
 }
