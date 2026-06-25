@@ -5,7 +5,7 @@
 // PRIV-02: visible statement that all work is local — backs the PRIV-01 architecture.
 export function Disclaimer() {
   return (
-    <footer className="flex flex-col gap-3 rounded-xl bg-surface-secondary p-6 text-[14px] leading-[1.4] text-text-muted">
+    <footer className="flex flex-col gap-4 rounded-xl bg-surface-secondary p-6 text-[14px] leading-[1.4] text-text-muted">
       <p>
         Your text never leaves your device. Everything — reading the text,
         converting it, and downloading — happens right here in your browser.

@@ -83,12 +83,17 @@ export function PasteTool() {
             onClick={handleConvert}
             disabled={busy}
             aria-busy={busy}
-            className="min-h-[44px] w-fit rounded-lg bg-accent px-6 text-[14px] font-semibold leading-[1.4] text-white hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-40"
+            aria-describedby={nudge ? "convert-nudge" : undefined}
+            className="min-h-[44px] w-fit rounded-lg bg-accent px-6 text-[14px] leading-[1.4] text-white hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-40"
           >
             {busy ? "Converting…" : "Convert"}
           </button>
           {nudge && (
-            <p role="status" className="text-[14px] leading-[1.4] text-text-muted">
+            <p
+              id="convert-nudge"
+              role="status"
+              className="text-[14px] leading-[1.4] text-text-muted"
+            >
               Add some text to convert first.
             </p>
           )}

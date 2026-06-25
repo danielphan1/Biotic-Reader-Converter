@@ -35,8 +35,8 @@ export function ExportControls({ html, plain }: { html: string; plain: string })
     "min-h-[44px] rounded-lg border border-border-hairline bg-surface px-5 text-[14px] leading-[1.4] text-text-primary hover:bg-surface-secondary";
 
   return (
-    <div className="flex flex-col gap-2">
-      <div className="flex flex-wrap gap-3">
+    <div className="flex flex-col gap-4 rounded-xl border border-border-hairline bg-surface-secondary p-6">
+      <div className="flex flex-wrap gap-2">
         <button type="button" onClick={handleCopy} className={buttonClass}>
           {copied ? "Copied" : "Copy"}
         </button>
@@ -47,6 +47,11 @@ export function ExportControls({ html, plain }: { html: string; plain: string })
       <p className="text-[14px] leading-[1.4] text-text-muted">
         A single file you can reopen offline — the bolding stays.
       </p>
+      {copied && (
+        <p role="status" className="text-[14px] leading-[1.4] text-text-muted">
+          Copied to your clipboard.
+        </p>
+      )}
       {copyFailed && (
         <p role="status" className="text-[14px] leading-[1.4] text-text-muted">
           Couldn&apos;t copy automatically — select the text and copy manually.

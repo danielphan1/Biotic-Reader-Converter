@@ -9,7 +9,7 @@ import { Disclaimer } from "@/components/Disclaimer";
 // Plan 01-03 inserts Copy/Download export controls below the reader.
 export default function Home() {
   return (
-    <main className="mx-auto flex max-w-3xl flex-col gap-12 px-6 py-16">
+    <main className="mx-auto flex max-w-3xl flex-col gap-8 px-6 py-16">
       <header className="flex flex-col gap-1">
         <h1 className="text-[28px] font-semibold leading-[1.2] text-text-primary">
           biotic
