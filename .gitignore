@@ -1,2 +1,17 @@
-﻿# GSD planning docs (kept local)
+# GSD planning docs (kept local)
 .planning/
+
+# dependencies
+/node_modules
+
+# next.js build output
+/.next/
+/out/
+
+# typescript
+*.tsbuildinfo
+next-env.d.ts
+
+# misc
+.DS_Store
+*.log
