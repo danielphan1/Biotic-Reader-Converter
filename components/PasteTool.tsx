@@ -24,14 +24,23 @@ export function PasteTool() {
   const [text, setText] = useState("");
   const [html, setHtml] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [nudge, setNudge] = useState(false);
 
-  const canConvert = text.trim().length > 0 && !busy;
+  const isEmpty = text.trim().length === 0;
 
   async function handleConvert() {
-    if (!canConvert) return;
+    if (busy) return;
+    // INPUT-07: empty/whitespace Convert is never a silent no-op — show a calm,
+    // actionable nudge (muted, not destructive red) and bail. The button stays
+    // pressable precisely so this feedback can fire.
+    if (isEmpty) {
+      setNudge(true);
+      return;
+    }
+    setNudge(false);
     setBusy(true);
-    // Yield a frame so the "Converting…" busy state is perceivable on large pastes
-    // (INPUT-06) — never freeze silently. Instant pastes may swap imperceptibly.
+    // INPUT-06: yield a frame so the "Converting…" busy state is perceivable on
+    // large pastes — never freeze silently. Instant pastes may swap imperceptibly.
     await new Promise((resolve) => setTimeout(resolve, 0));
     setHtml(bioticDoc(toDoc(text)));
     setBusy(false);
@@ -56,21 +65,28 @@ export function PasteTool() {
         <textarea
           id="paste-input"
           value={text}
-          onChange={(e) => setText(e.target.value)}
+          onChange={(e) => {
+            setText(e.target.value);
+            if (nudge) setNudge(false);
+          }}
           placeholder="Paste or type any text here, then press Convert."
           className="min-h-[200px] w-full resize-y rounded-lg border border-border-hairline bg-surface p-4 text-[16px] leading-[1.5] text-text-primary placeholder:text-text-muted"
         />
-        <div>
+        <div className="flex flex-col gap-2">
           <button
             type="button"
             onClick={handleConvert}
-            disabled={!canConvert}
-            aria-disabled={!canConvert}
+            disabled={busy}
             aria-busy={busy}
-            className="min-h-[44px] rounded-lg bg-accent px-6 text-[14px] font-semibold leading-[1.4] text-white hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-40"
+            className="min-h-[44px] w-fit rounded-lg bg-accent px-6 text-[14px] font-semibold leading-[1.4] text-white hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-40"
           >
             {busy ? "Converting…" : "Convert"}
           </button>
+          {nudge && (
+            <p role="status" className="text-[14px] leading-[1.4] text-text-muted">
+              Add some text to convert first.
+            </p>
+          )}
         </div>
       </div>
 
