@@ -8,6 +8,9 @@
 /.next/
 /out/
 
+# generated at predev/prebuild from the installed pdfjs-dist (version-matched, reproducible)
+/public/pdf.worker.min.mjs
+
 # typescript
 *.tsbuildinfo
 next-env.d.ts
