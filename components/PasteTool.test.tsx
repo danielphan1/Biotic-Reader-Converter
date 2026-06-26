@@ -1,5 +1,28 @@
-import { describe, it, expect } from "vitest";
-import { render, screen, fireEvent, waitFor } from "@testing-library/react";
+import { describe, it, expect, vi, beforeEach } from "vitest";
+import { render, screen, fireEvent, waitFor, act } from "@testing-library/react";
+
+// Controllable extractPdf mock: it captures the onProgress emitter, the abort
+// signal, and a resolve handle so each test can emit progress and settle the
+// result deterministically (no real pdfjs in the component test).
+const pdfCtl = vi.hoisted(() => ({
+  onProgress: null as null | ((p: number, t: number) => void),
+  signal: null as null | AbortSignal,
+  resolve: null as null | ((r: unknown) => void),
+}));
+
+vi.mock("@/lib/extract/pdf", () => ({
+  extractPdf: (
+    _buf: ArrayBuffer,
+    onProgress: (p: number, t: number) => void,
+    signal: AbortSignal,
+  ) =>
+    new Promise((resolve) => {
+      pdfCtl.onProgress = onProgress;
+      pdfCtl.signal = signal;
+      pdfCtl.resolve = resolve;
+    }),
+}));
+
 import { PasteTool } from "./PasteTool";
 
 function makeFile(content: string, name: string, type = "text/plain"): File {
@@ -20,9 +43,14 @@ function pickFile(container: HTMLElement, file: File) {
   fireEvent.change(input);
 }
 
-// A real ZIP magic header (PK\x03\x04) — validateFile must reject this as
-// 'unsupported' by content even though it is named .txt.
 const ZIP_HEADER = "PK" + String.fromCharCode(3, 4) + " not real text";
+const PDF_HEADER = "%PDF-1.4 minimal";
+
+beforeEach(() => {
+  pdfCtl.onProgress = null;
+  pdfCtl.signal = null;
+  pdfCtl.resolve = null;
+});
 
 describe("PasteTool — TXT file input slice (D-11/12/13, INPUT-07)", () => {
   it("picking a .txt shows a filename chip and never dumps the text into a textarea (D-12)", async () => {
@@ -30,9 +58,7 @@ describe("PasteTool — TXT file input slice (D-11/12/13, INPUT-07)", () => {
     pickFile(container, makeFile("Alpha line.\n\nBeta line.", "notes.txt"));
 
     expect(await screen.findByText("notes.txt")).toBeTruthy();
-    // The extracted text appears in no input value...
     expect(screen.queryByDisplayValue(/Alpha line/)).toBeNull();
-    // ...and the textarea is replaced by the chip in the loaded state.
     expect(screen.queryByLabelText("Paste your text")).toBeNull();
   });
 
@@ -45,7 +71,6 @@ describe("PasteTool — TXT file input slice (D-11/12/13, INPUT-07)", () => {
 
     const reader = await screen.findByLabelText("Converted text");
     await waitFor(() => expect(reader.textContent).toContain("Reading"));
-    // Bolding is real semantic <b>, conveyed by the shared transform engine.
     expect(reader.querySelector("b")).toBeTruthy();
   });
 
@@ -67,7 +92,6 @@ describe("PasteTool — TXT file input slice (D-11/12/13, INPUT-07)", () => {
     expect(await screen.findByText(/isn't supported yet/i)).toBeTruthy();
 
     fireEvent.click(screen.getByRole("button", { name: /convert/i }));
-    // The reader stays in its empty placeholder — no converted output rendered.
     expect(screen.queryByText("Your converted text")).toBeNull();
     expect(screen.getByText(/will appear here/i)).toBeTruthy();
   });
@@ -82,5 +106,65 @@ describe("PasteTool — TXT file input slice (D-11/12/13, INPUT-07)", () => {
     const reader = await screen.findByLabelText("Converted text");
     await waitFor(() => expect(reader.textContent).toContain("Focus"));
     expect(reader.querySelectorAll("p").length).toBe(2);
+  });
+});
+
+describe("PasteTool — PDF dispatch slice (D-14/D-15, INPUT-07)", () => {
+  it("shows a determinate progress bar, then a chip on success, then converts", async () => {
+    const { container } = render(<PasteTool />);
+    pickFile(container, makeFile(PDF_HEADER, "report.pdf", "application/pdf"));
+
+    // extractPdf was dispatched (captured the emitter); emit per-page progress (D-14).
+    await waitFor(() => expect(typeof pdfCtl.onProgress).toBe("function"));
+    act(() => pdfCtl.onProgress!(2, 5));
+
+    expect(await screen.findByRole("progressbar")).toBeTruthy();
+    expect(screen.getByText(/Extracting page 2 of 5/i)).toBeTruthy();
+
+    // Resolve success -> progress clears, chip appears, textarea stays untouched (D-12).
+    await act(async () => {
+      pdfCtl.resolve!({ ok: true, doc: { paragraphs: ["Pdf body text here."] } });
+    });
+    expect(await screen.findByText("report.pdf")).toBeTruthy();
+    expect(screen.queryByRole("progressbar")).toBeNull();
+
+    fireEvent.click(screen.getByRole("button", { name: /convert/i }));
+    const reader = await screen.findByLabelText("Converted text");
+    await waitFor(() => expect(reader.textContent).toContain("Pdf"));
+  });
+
+  it("a scanned PDF shows the calm 'no selectable text' message and Convert yields no output", async () => {
+    const { container } = render(<PasteTool />);
+    pickFile(container, makeFile(PDF_HEADER, "scan.pdf", "application/pdf"));
+
+    await waitFor(() => expect(typeof pdfCtl.resolve).toBe("function"));
+    await act(async () => {
+      pdfCtl.resolve!({ error: true, reason: "scanned" });
+    });
+
+    expect(await screen.findByText(/no selectable text/i)).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: /convert/i }));
+    expect(screen.queryByText("Your converted text")).toBeNull();
+  });
+
+  it("Cancel aborts the signal and resets the card to the empty drop-zone (D-15)", async () => {
+    const { container } = render(<PasteTool />);
+    pickFile(container, makeFile(PDF_HEADER, "big.pdf", "application/pdf"));
+
+    await waitFor(() => expect(pdfCtl.signal).toBeTruthy());
+    act(() => pdfCtl.onProgress!(1, 50));
+
+    const cancel = await screen.findByRole("button", { name: /cancel/i });
+    fireEvent.click(cancel);
+    expect(pdfCtl.signal!.aborted).toBe(true);
+
+    // The real extractPdf resolves cancelled once aborted; settle the mock the same way.
+    await act(async () => {
+      pdfCtl.resolve!({ error: true, reason: "cancelled" });
+    });
+
+    expect(await screen.findByLabelText("Paste your text")).toBeTruthy();
+    expect(screen.queryByRole("progressbar")).toBeNull();
+    expect(screen.queryByText("big.pdf")).toBeNull();
   });
 });

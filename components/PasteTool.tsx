@@ -1,24 +1,26 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { bioticDoc } from "@/lib/biotic";
 import type { ExtractedDoc } from "@/lib/types";
 import { validateFile } from "@/lib/extract/validate";
 import { extractTxt } from "@/lib/extract/txt";
+import { extractPdf } from "@/lib/extract/pdf";
 import { splitParagraphs } from "@/lib/extract/split";
 import { FAIL_MESSAGES } from "@/lib/extract/messages";
 import type { ExtractFailReason } from "@/lib/extract/strategy";
 import { BioticReader } from "@/components/BioticReader";
 import { ExportControls } from "@/components/ExportControls";
 import { FileDropZone } from "@/components/FileDropZone";
+import { ExtractProgress } from "@/components/ExtractProgress";
 
-// PasteTool — paste raw text OR drop/pick a file, then trigger an EXPLICIT
-// conversion (INPUT-01, D-03). The existing paste card doubles as the drop-zone
-// (D-11); a loaded file is shown as a removable filename chip — the extracted
-// text is never dumped into the textarea (D-12). Extraction runs on drop, and
-// the SAME Convert button sends the result to BioticReader (D-13). Edge cases
-// surface as calm INPUT-07 messages before conversion. All work is in-memory and
-// client-side; nothing is uploaded (PRIV-01).
+// PasteTool — paste raw text OR drop/pick a .txt / digital PDF, then trigger an
+// EXPLICIT conversion (INPUT-01, D-03). The card doubles as the drop-zone (D-11);
+// a loaded file is a removable filename chip, never text dumped into the textarea
+// (D-12). TXT extracts instantly; a PDF extracts with a determinate per-page
+// progress bar (D-14) and a Cancel that aborts and resets (D-15). The same Convert
+// button sends the result to BioticReader (D-13). Edge cases surface as calm
+// INPUT-07 messages before conversion. All client-side; nothing is uploaded (PRIV-01).
 
 // Pasted text -> ExtractedDoc via the shared splitter (single source of truth).
 function toDoc(text: string): ExtractedDoc {
@@ -40,12 +42,21 @@ export function PasteTool() {
   const [fileDoc, setFileDoc] = useState<ExtractedDoc | null>(null);
   const [fileError, setFileError] = useState<ExtractFailReason | null>(null);
 
+  // PDF extraction lifecycle (D-14 progress, D-15 cancel).
+  const [extracting, setExtracting] = useState(false);
+  const [progress, setProgress] = useState<{ page: number; total: number }>({ page: 0, total: 0 });
+  const controllerRef = useRef<AbortController | null>(null);
+
   const isEmpty = text.trim().length === 0;
 
   function removeFile() {
     setFileName(null);
     setFileDoc(null);
     setFileError(null);
+  }
+
+  function handleCancel() {
+    controllerRef.current?.abort();
   }
 
   // Extract-on-drop (D-13): validate by magic bytes, then run the matching
@@ -64,7 +75,6 @@ export function PasteTool() {
 
     if (v.kind === "txt") {
       const r = await extractTxt(await file.arrayBuffer());
-      // ExtractResult branches discriminate on the presence of `ok` vs `error`.
       if ("ok" in r) {
         setFileName(file.name);
         setFileDoc(r.doc);
@@ -74,10 +84,27 @@ export function PasteTool() {
       return;
     }
 
-    // v.kind === "pdf": the PDF engine (02-04) is dispatched here in 02-05
-    // (extractPdf + determinate progress + Cancel). Seam: show the chip now;
-    // Convert stays inert for PDFs until that wiring lands.
-    setFileName(file.name);
+    // v.kind === "pdf": extract with a determinate progress bar + cooperative
+    // cancel. extractPdf lazy-imports pdfjs internally (no top-level pdfjs here).
+    const controller = new AbortController();
+    controllerRef.current = controller;
+    setExtracting(true);
+    setProgress({ page: 0, total: 0 });
+    const r = await extractPdf(
+      await file.arrayBuffer(),
+      (page, total) => setProgress({ page, total }),
+      controller.signal,
+    );
+    setExtracting(false);
+    controllerRef.current = null;
+
+    if ("ok" in r) {
+      setFileName(file.name);
+      setFileDoc(r.doc);
+    } else if (r.reason !== "cancelled") {
+      setFileError(r.reason);
+    }
+    // cancelled -> silent reset: state is already cleared above (empty drop-zone).
   }
 
   async function handleConvert() {
@@ -85,7 +112,7 @@ export function PasteTool() {
 
     // File path takes precedence when a file is loaded.
     if (fileName !== null) {
-      if (fileDoc === null) return; // failed/empty/unsupported/pending -> no output (D-13)
+      if (fileDoc === null) return; // failed/empty/unsupported -> no output (D-13)
       setBusy(true);
       await new Promise((resolve) => setTimeout(resolve, 0));
       setHtml(bioticDoc(fileDoc));
@@ -95,8 +122,6 @@ export function PasteTool() {
     }
 
     // Paste path (unchanged from Phase 1).
-    // INPUT-07: empty/whitespace Convert is never a silent no-op — show a calm,
-    // actionable nudge (muted, not destructive red) and bail.
     if (isEmpty) {
       setNudge(true);
       return;
@@ -104,7 +129,7 @@ export function PasteTool() {
     setNudge(false);
     setBusy(true);
     // INPUT-06: yield a frame so the "Converting…" busy state is perceivable on
-    // large pastes — never freeze silently. Instant pastes may swap imperceptibly.
+    // large pastes — never freeze silently.
     await new Promise((resolve) => setTimeout(resolve, 0));
     setHtml(bioticDoc(toDoc(text)));
     setConvertedPlain(text);
@@ -126,7 +151,10 @@ export function PasteTool() {
       </h2>
 
       <div className="flex flex-col gap-2 rounded-xl border border-border-hairline bg-surface-secondary p-6">
-        {fileName !== null ? (
+        {extracting ? (
+          // D-14/D-15: determinate progress + Cancel replace the input while a PDF parses.
+          <ExtractProgress page={progress.page} total={progress.total} onCancel={handleCancel} />
+        ) : fileName !== null ? (
           // D-12: filename chip only — the extracted text is NOT shown in a textarea.
           <div className="flex items-center gap-3">
             <span className="inline-flex items-center gap-2 rounded-full border border-border-hairline bg-surface px-3 py-1 text-[14px] leading-[1.4] text-text-primary">
@@ -161,38 +189,37 @@ export function PasteTool() {
           </>
         )}
 
-        <FileDropZone onFile={handleFile} />
+        {!extracting && <FileDropZone onFile={handleFile} />}
 
         {failMessage !== null && (
-          <p
-            role="status"
-            className="text-[14px] leading-[1.4] text-text-muted"
-          >
+          <p role="status" className="text-[14px] leading-[1.4] text-text-muted">
             {failMessage.body}
           </p>
         )}
 
-        <div className="flex flex-col gap-2">
-          <button
-            type="button"
-            onClick={handleConvert}
-            disabled={busy}
-            aria-busy={busy}
-            aria-describedby={nudge ? "convert-nudge" : undefined}
-            className="min-h-[44px] w-fit rounded-lg bg-accent px-6 text-[14px] leading-[1.4] text-white hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-40"
-          >
-            {busy ? "Converting…" : "Convert"}
-          </button>
-          {nudge && (
-            <p
-              id="convert-nudge"
-              role="status"
-              className="text-[14px] leading-[1.4] text-text-muted"
+        {!extracting && (
+          <div className="flex flex-col gap-2">
+            <button
+              type="button"
+              onClick={handleConvert}
+              disabled={busy}
+              aria-busy={busy}
+              aria-describedby={nudge ? "convert-nudge" : undefined}
+              className="min-h-[44px] w-fit rounded-lg bg-accent px-6 text-[14px] leading-[1.4] text-white hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-40"
             >
-              Add some text to convert first.
-            </p>
-          )}
-        </div>
+              {busy ? "Converting…" : "Convert"}
+            </button>
+            {nudge && (
+              <p
+                id="convert-nudge"
+                role="status"
+                className="text-[14px] leading-[1.4] text-text-muted"
+              >
+                Add some text to convert first.
+              </p>
+            )}
+          </div>
+        )}
       </div>
 
       <BioticReader html={html} />
