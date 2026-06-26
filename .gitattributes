@@ -1,0 +1,4 @@
+# Test fixtures are binary — EOL normalization would corrupt PDF xref byte
+# offsets and the UTF-16 BOM. Never apply text/CRLF conversion to them.
+*.pdf binary
+test/fixtures/utf16le.txt binary
