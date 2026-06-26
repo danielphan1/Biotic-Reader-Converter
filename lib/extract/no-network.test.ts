@@ -33,4 +33,15 @@ describe("no-network guard — PRIV-01 holds after adding pdfjs", () => {
     const pkg = JSON.parse(readFileSync("package.json", "utf8"));
     expect(pkg.scripts["check:no-network"]).toContain("check-no-network.mjs");
   });
+
+  it("pdf.ts uses the local self-hosted worker — no CDN, no new URL() worker", () => {
+    const src = readFileSync("lib/extract/pdf.ts", "utf8");
+    // The worker must be the root-relative local asset...
+    expect(src).toContain("/pdf.worker.min.mjs");
+    // ...and never a CDN host, off-origin worker/cmap URL, or the new URL() pattern
+    // that breaks the Next production build.
+    expect(CDN_HOST.test(src)).toBe(false);
+    expect(OFF_ORIGIN_ASSET.test(src)).toBe(false);
+    expect(/new URL\(/.test(src)).toBe(false);
+  });
 });

@@ -11,6 +11,7 @@ export interface ReflowItem {
   width?: number;
   height?: number;
   hasEOL?: boolean;
+  type?: string; // present on pdfjs TextMarkedContent (which has no `str`)
 }
 
 interface Line {

@@ -24,13 +24,19 @@ vi.mock("pdfjs-dist", async () => {
   const real = (await import("pdfjs-dist/legacy/build/pdf.mjs")) as typeof import("pdfjs-dist");
   return {
     ...real,
-    GlobalWorkerOptions: real.GlobalWorkerOptions,
+    // Decoupled from the real module: pdf.ts assigns workerSrt here, but the real
+    // legacy parser keeps its own (empty) workerSrc and runs the built-in fake
+    // worker via disableWorker — so it never tries to import the local worker path.
+    GlobalWorkerOptions: { workerSrc: "" },
     getDocument: (opts: Parameters<typeof real.getDocument>[0]) => {
-      const task = real.getDocument({
-        ...(opts as object),
+      // disableWorker forces main-thread parse for the headless test env; it is a
+      // runtime-honored pdfjs option not present in the public option types.
+      const params = {
+        ...(opts as Record<string, unknown>),
         disableWorker: true,
         isEvalSupported: false,
-      });
+      } as Parameters<typeof real.getDocument>[0];
+      const task = real.getDocument(params);
       const origDestroy = task.destroy.bind(task);
       const spy = vi.fn(() => origDestroy());
       task.destroy = spy;
