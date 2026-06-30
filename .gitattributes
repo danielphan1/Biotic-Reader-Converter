@@ -1,4 +1,10 @@
 # Test fixtures are binary — EOL normalization would corrupt PDF xref byte
 # offsets and the UTF-16 BOM. Never apply text/CRLF conversion to them.
 *.pdf binary
+# DOCX/XLSX/ZIP fixtures are OOXML/zip containers (and one CFBF/OLE2 stub) — the
+# same EOL/CRLF normalization that corrupts a PDF would corrupt their zip records
+# and magic bytes. Guard them as binary so git stores the exact bytes.
+*.docx binary
+*.xlsx binary
+*.zip binary
 test/fixtures/utf16le.txt binary
