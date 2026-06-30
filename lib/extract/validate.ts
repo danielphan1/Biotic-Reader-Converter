@@ -10,9 +10,13 @@ export const MAX_BYTES = 25 * 1024 * 1024;
 
 const PDF_SIG = "%PDF-";
 const ZIP_SIG = [0x50, 0x4b, 0x03, 0x04]; // "PK\x03\x04" — zip/docx/xlsx container
+// OLE2 / Compound File Binary — encrypted OOXML wraps the zip in this container
+// (also legacy .doc; that collision is accepted, RESEARCH A2). It never reaches
+// the PK branch, so an encrypted .docx must be sniffed here as 'password'.
+const CFBF_SIG = [0xd0, 0xcf, 0x11, 0xe0, 0xa1, 0xb1, 0x1a, 0xe1];
 
 export type ValidateResult =
-  | { ok: true; kind: "txt" | "pdf" }
+  | { ok: true; kind: "txt" | "pdf" | "docx" }
   | { ok: false; reason: ExtractFailReason };
 
 // True if the head looks like a text-bearing file: a leading UTF-8/UTF-16 BOM,
@@ -44,7 +48,8 @@ function asLatin1(b: Uint8Array): string {
 /**
  * Validate a dropped/picked file by size then magic bytes. Returns the detected
  * `kind` for routing to the right strategy, or a fail reason the UI maps to a
- * specific INPUT-07 message. DOCX (PK zip) is explicitly 'unsupported' until Phase 3.
+ * specific INPUT-07 message. A PK zip routes to the docx strategy; an encrypted
+ * OOXML/CFBF file is classified as 'password' before the text heuristic runs.
  */
 export async function validateFile(file: File): Promise<ValidateResult> {
   // Size gate FIRST — never read bytes from an oversize file (T-02-02 DoS).
@@ -55,7 +60,8 @@ export async function validateFile(file: File): Promise<ValidateResult> {
   // %PDF- anywhere in the first 1024 bytes (some PDFs have leading junk).
   if (asLatin1(head).includes(PDF_SIG)) return { ok: true, kind: "pdf" };
 
-  // PK zip container (docx/xlsx/zip) — not handled in Phase 2.
+  // PK zip container (docx/xlsx/zip) — routed to the docx strategy, which lets
+  // mammoth reject a non-Word zip as 'unsupported' from its real parse error.
   if (
     head.length >= 4 &&
     head[0] === ZIP_SIG[0] &&
@@ -63,7 +69,14 @@ export async function validateFile(file: File): Promise<ValidateResult> {
     head[2] === ZIP_SIG[2] &&
     head[3] === ZIP_SIG[3]
   ) {
-    return { ok: false, reason: "unsupported" };
+    return { ok: true, kind: "docx" };
+  }
+
+  // CFBF/OLE2 header — an encrypted .docx (or legacy .doc) wraps its payload in
+  // this container, so it never hits the PK branch. Classify as 'password' before
+  // the text heuristic, which would otherwise see the binary head as unsupported.
+  if (head.length >= 8 && CFBF_SIG.every((b, i) => head[i] === b)) {
+    return { ok: false, reason: "password" };
   }
 
   if (looksLikeText(head)) return { ok: true, kind: "txt" };

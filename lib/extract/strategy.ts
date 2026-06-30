@@ -49,6 +49,6 @@ export interface ExtractContext {
  * tag; `extract` consumes the raw File and returns a normalized ExtractResult.
  */
 export interface ExtractStrategy {
-  readonly kind: "txt" | "pdf";
+  readonly kind: "txt" | "pdf" | "docx";
   extract(file: File, ctx: ExtractContext): Promise<ExtractResult>;
 }
