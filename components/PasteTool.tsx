@@ -6,6 +6,7 @@ import type { ExtractedDoc } from "@/lib/types";
 import { validateFile } from "@/lib/extract/validate";
 import { extractTxt } from "@/lib/extract/txt";
 import { extractPdf } from "@/lib/extract/pdf";
+import { extractDocx } from "@/lib/extract/docx";
 import { splitParagraphs } from "@/lib/extract/split";
 import { FAIL_MESSAGES } from "@/lib/extract/messages";
 import type { ExtractFailReason } from "@/lib/extract/strategy";
@@ -45,6 +46,9 @@ export function PasteTool() {
   // PDF extraction lifecycle (D-14 progress, D-15 cancel).
   const [extracting, setExtracting] = useState(false);
   const [progress, setProgress] = useState<{ page: number; total: number }>({ page: 0, total: 0 });
+  // DOCX has no page count, so its progress is indeterminate (D-19) — distinct
+  // from the PDF determinate bar that reads `progress`.
+  const [indeterminate, setIndeterminate] = useState(false);
   const controllerRef = useRef<AbortController | null>(null);
 
   const isEmpty = text.trim().length === 0;
@@ -81,6 +85,28 @@ export function PasteTool() {
       } else {
         setFileError(r.reason);
       }
+      return;
+    }
+
+    if (v.kind === "docx") {
+      // DOCX: indeterminate "Reading document…" + cancel (D-19). extractDocx
+      // lazy-imports mammoth internally; no per-page progress (no page count).
+      const controller = new AbortController();
+      controllerRef.current = controller;
+      setIndeterminate(true);
+      setExtracting(true);
+      const r = await extractDocx(await file.arrayBuffer(), controller.signal);
+      setExtracting(false);
+      setIndeterminate(false);
+      controllerRef.current = null;
+
+      if ("ok" in r) {
+        setFileName(file.name);
+        setFileDoc(r.doc);
+      } else if (r.reason !== "cancelled") {
+        setFileError(r.reason);
+      }
+      // cancelled -> silent reset (state already cleared above).
       return;
     }
 
@@ -152,8 +178,14 @@ export function PasteTool() {
 
       <div className="flex flex-col gap-2 rounded-xl border border-border-hairline bg-surface-secondary p-6">
         {extracting ? (
-          // D-14/D-15: determinate progress + Cancel replace the input while a PDF parses.
-          <ExtractProgress page={progress.page} total={progress.total} onCancel={handleCancel} />
+          // While a file parses, progress + Cancel replace the input: a determinate
+          // per-page bar for PDF (D-14/D-15) or an indeterminate indicator for DOCX (D-19).
+          <ExtractProgress
+            indeterminate={indeterminate}
+            page={progress.page}
+            total={progress.total}
+            onCancel={handleCancel}
+          />
         ) : fileName !== null ? (
           // D-12: filename chip only — the extracted text is NOT shown in a textarea.
           <div className="flex items-center gap-3">
