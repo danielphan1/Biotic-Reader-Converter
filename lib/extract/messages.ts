@@ -20,13 +20,13 @@ export const FAIL_MESSAGES: Record<
     body: "This PDF has no selectable text — it looks like a scan or photo. Try a text-based PDF.",
   },
   password: {
-    body: "This PDF is password-protected, so its text can't be read. Try an unlocked copy.",
+    body: "This file is password-protected, so its text can't be read. Try an unlocked copy.",
   },
   corrupt: {
-    body: "This file looks damaged or isn't a valid PDF. Try re-saving or exporting it again.",
+    body: "This file looks damaged or isn't a readable document. Try re-saving or exporting it again.",
   },
   unsupported: {
-    body: "This file type isn't supported yet. Try a .txt file or a text-based PDF.",
+    body: "This file isn't supported. Try a .txt file, a text-based PDF, or a Word (.docx) document.",
   },
   oversize: {
     body: "This file is larger than 25 MB. Try a smaller file.",
