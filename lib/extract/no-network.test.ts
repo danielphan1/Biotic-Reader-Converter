@@ -34,6 +34,18 @@ describe("no-network guard — PRIV-01 holds after adding pdfjs", () => {
     expect(pkg.scripts["check:no-network"]).toContain("check-no-network.mjs");
   });
 
+  it("docx.ts dynamically imports mammoth and references no CDN/off-origin URL (PRIV-01)", () => {
+    // existsSync-guarded: vacuously passes in Wave 0 (03-01), becomes meaningful
+    // once 03-02 authors lib/extract/docx.ts. Mammoth is a bundled dynamic import —
+    // never fetched from a CDN — so DOCX extraction uploads/loads nothing off-origin.
+    const path = "lib/extract/docx.ts";
+    if (!existsSync(path)) return;
+    const src = readFileSync(path, "utf8");
+    expect(src).toContain('import("mammoth")');
+    expect(CDN_HOST.test(src)).toBe(false);
+    expect(OFF_ORIGIN_ASSET.test(src)).toBe(false);
+  });
+
   it("pdf.ts uses the local self-hosted worker — no CDN, no new URL() worker", () => {
     const src = readFileSync("lib/extract/pdf.ts", "utf8");
     // The worker must be the root-relative local asset...

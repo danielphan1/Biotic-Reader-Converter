@@ -15,10 +15,16 @@ describe("validateFile — magic-byte sniff + size cap (INPUT-02/03, T-02-01/02)
     expect(r.ok && r.kind).toBe("pdf");
   });
 
-  it("rejects a PK zip header (docx-class) as unsupported — even named .txt", async () => {
+  it("routes a PK zip header (docx-class) to kind:docx — by content, not .docx", async () => {
     const r = await validateFile(fileOf([0x50, 0x4b, 0x03, 0x04, 1, 2, 3], "fake.txt"));
+    expect(r.ok).toBe(true);
+    expect(r.ok && r.kind).toBe("docx");
+  });
+
+  it("maps a CFBF/OLE2 header (encrypted/legacy Office) to reason:password", async () => {
+    const r = await validateFile(fileOf([0xd0, 0xcf, 0x11, 0xe0, 0xa1, 0xb1, 0x1a, 0xe1, 0, 0], "enc.docx"));
     expect(r.ok).toBe(false);
-    expect(!r.ok && r.reason).toBe("unsupported");
+    expect(!r.ok && r.reason).toBe("password");
   });
 
   it("accepts a UTF-8 text sample as kind:txt", async () => {
