@@ -23,6 +23,21 @@ vi.mock("@/lib/extract/pdf", () => ({
     }),
 }));
 
+// Controllable extractDocx mock: DOCX parse is indeterminate (no onProgress), so
+// we capture only the abort signal + a resolve handle to settle the result.
+const docxCtl = vi.hoisted(() => ({
+  signal: null as null | AbortSignal,
+  resolve: null as null | ((r: unknown) => void),
+}));
+
+vi.mock("@/lib/extract/docx", () => ({
+  extractDocx: (_buf: ArrayBuffer, signal: AbortSignal) =>
+    new Promise((resolve) => {
+      docxCtl.signal = signal;
+      docxCtl.resolve = resolve;
+    }),
+}));
+
 import { PasteTool } from "./PasteTool";
 
 function makeFile(content: string, name: string, type = "text/plain"): File {
@@ -50,6 +65,8 @@ beforeEach(() => {
   pdfCtl.onProgress = null;
   pdfCtl.signal = null;
   pdfCtl.resolve = null;
+  docxCtl.signal = null;
+  docxCtl.resolve = null;
 });
 
 describe("PasteTool — TXT file input slice (D-11/12/13, INPUT-07)", () => {
@@ -85,11 +102,19 @@ describe("PasteTool — TXT file input slice (D-11/12/13, INPUT-07)", () => {
     expect(screen.getByLabelText("Paste your text")).toBeTruthy();
   });
 
-  it("an unsupported file surfaces a calm INPUT-07 message and Convert yields no output", async () => {
+  it("a non-Word PK-zip routes to docx, resolves unsupported, and shows the generalized message", async () => {
     const { container } = render(<PasteTool />);
     pickFile(container, makeFile(ZIP_HEADER, "fake.txt"));
 
-    expect(await screen.findByText(/isn't supported yet/i)).toBeTruthy();
+    // PK-zip now validates as kind:docx (03-02); the docx strategy reports it as
+    // unsupported once mammoth fails to find a Word document part.
+    await waitFor(() => expect(typeof docxCtl.resolve).toBe("function"));
+    await act(async () => {
+      docxCtl.resolve!({ error: true, reason: "unsupported" });
+    });
+
+    expect(await screen.findByText(/isn't supported/i)).toBeTruthy();
+    expect(screen.getByText(/Word/i)).toBeTruthy(); // generalized copy names Word (.docx)
 
     fireEvent.click(screen.getByRole("button", { name: /convert/i }));
     expect(screen.queryByText("Your converted text")).toBeNull();
@@ -166,5 +191,53 @@ describe("PasteTool — PDF dispatch slice (D-14/D-15, INPUT-07)", () => {
     expect(await screen.findByLabelText("Paste your text")).toBeTruthy();
     expect(screen.queryByRole("progressbar")).toBeNull();
     expect(screen.queryByText("big.pdf")).toBeNull();
+  });
+});
+
+describe("PasteTool — DOCX dispatch slice (D-16/17/18/19, INPUT-07)", () => {
+  it("dropping a .docx shows the indeterminate 'Reading document…' indicator + Cancel while parsing", async () => {
+    const { container } = render(<PasteTool />);
+    pickFile(container, makeFile(ZIP_HEADER, "essay.docx"));
+
+    await waitFor(() => expect(docxCtl.signal).toBeTruthy());
+    expect(await screen.findByText(/Reading document/i)).toBeTruthy();
+    expect(screen.queryByText(/page \d+ of \d+/i)).toBeNull(); // not "page 0 of 0"
+    expect(screen.getByRole("button", { name: /cancel/i })).toBeTruthy();
+  });
+
+  it("on success shows a filename chip and converts through the reader", async () => {
+    const { container } = render(<PasteTool />);
+    pickFile(container, makeFile(ZIP_HEADER, "essay.docx"));
+
+    await waitFor(() => expect(typeof docxCtl.resolve).toBe("function"));
+    await act(async () => {
+      docxCtl.resolve!({ ok: true, doc: { paragraphs: ["Docx body text here."] } });
+    });
+
+    expect(await screen.findByText("essay.docx")).toBeTruthy();
+    expect(screen.queryByText(/Reading document/i)).toBeNull();
+
+    fireEvent.click(screen.getByRole("button", { name: /convert/i }));
+    const reader = await screen.findByLabelText("Converted text");
+    await waitFor(() => expect(reader.textContent).toContain("Docx"));
+  });
+
+  it("Cancel during docx extraction aborts the signal and silently resets the card", async () => {
+    const { container } = render(<PasteTool />);
+    pickFile(container, makeFile(ZIP_HEADER, "big.docx"));
+
+    await waitFor(() => expect(docxCtl.signal).toBeTruthy());
+    const cancel = await screen.findByRole("button", { name: /cancel/i });
+    fireEvent.click(cancel);
+    expect(docxCtl.signal!.aborted).toBe(true);
+
+    // The real extractDocx resolves cancelled once aborted; settle the mock the same way.
+    await act(async () => {
+      docxCtl.resolve!({ error: true, reason: "cancelled" });
+    });
+
+    expect(await screen.findByLabelText("Paste your text")).toBeTruthy();
+    expect(screen.queryByText(/Reading document/i)).toBeNull();
+    expect(screen.queryByText("big.docx")).toBeNull();
   });
 });
