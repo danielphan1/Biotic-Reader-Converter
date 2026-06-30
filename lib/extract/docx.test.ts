@@ -63,7 +63,11 @@ describe("extractDocx — DOCX runtime (INPUT-04, D-16/17/18, PRIV-01)", () => {
     let thrown = "";
     try {
       const mammoth = await import("mammoth");
-      await mammoth.extractRawText({ arrayBuffer: docxBuffer("corrupt") });
+      // Mirror extractDocx's dual-key call: the node build reads `buffer`, the
+      // browser build reads `arrayBuffer` — pass both so this captures the REAL
+      // jszip corrupt-zip error here in the node test env.
+      const buf = docxBuffer("corrupt");
+      await mammoth.extractRawText({ arrayBuffer: buf, buffer: buf as never });
     } catch (e) {
       thrown = (e as { message?: string })?.message ?? "";
     }
