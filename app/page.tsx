@@ -1,28 +1,24 @@
+import { SiteHeader } from "@/components/SiteHeader";
+import { Hero } from "@/components/Hero";
 import { Explainer } from "@/components/Explainer";
 import { DemoToggle } from "@/components/DemoToggle";
 import { PasteTool } from "@/components/PasteTool";
 import { Disclaimer } from "@/components/Disclaimer";
 
-// Single scrolling page (D-01 — no routing). Composed top-to-bottom per the
-// UI-SPEC interaction contract: title → explainer → live demo → paste tool
-// (with the reader rendering below it) → disclaimer/privacy footer.
-// Plan 01-03 inserts Copy/Download export controls below the reader.
+// Single scrolling page (D-01 — no routing), now composed as three distinct
+// registers rather than four identical cards: a full-bleed hero that argues,
+// an editorial explainer that reads, and an elevated work surface that does.
 export default function Home() {
   return (
-    <main className="mx-auto flex max-w-3xl flex-col gap-8 px-6 py-16">
-      <header className="flex flex-col gap-1">
-        <h1 className="text-[28px] font-semibold leading-[1.2] text-text-primary">
-          biotic
-        </h1>
-        <p className="text-[14px] leading-[1.4] text-text-muted">
-          Read with less effort.
-        </p>
-      </header>
-
-      <Explainer />
-      <DemoToggle />
-      <PasteTool />
+    <>
+      <SiteHeader />
+      <main id="top">
+        <Hero />
+        <Explainer />
+        <DemoToggle />
+        <PasteTool />
+      </main>
       <Disclaimer />
-    </main>
+    </>
   );
 }

@@ -10,28 +10,34 @@
 // Reading-surface styling mirrored from the in-app reader tokens (D-10) as concrete
 // values — the downloaded file has no access to the app's CSS variables.
 const EXPORT_STYLE = `
-  :root { color-scheme: light; }
+  :root { color-scheme: light dark; }
   body {
     margin: 0;
-    background: #f5f5f7;
-    color: #1d1d1f;
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-    font-size: 16px;
-    line-height: 1.5;
+    background: #fbfbfd;
+    color: #14141a;
+    font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    font-size: 19px;
+    line-height: 1.75;
     -webkit-font-smoothing: antialiased;
   }
   main {
-    max-width: 65ch;
-    margin: 48px auto;
-    padding: 32px;
-    background: #ffffff;
-    border: 1px solid #d2d2d7;
-    border-radius: 12px;
+    max-width: 68ch;
+    margin: 0 auto;
+    padding: 72px 32px 96px;
   }
-  p { margin: 0 0 16px; }
+  p { margin: 0 0 1.25em; }
   p:last-child { margin-bottom: 0; }
   /* Biotic bolding is semantic font-weight, never color — survives offline + themes. */
   b { font-weight: 700; }
+  ::selection { background: #5b4be0; color: #ffffff; }
+  @media (prefers-color-scheme: dark) {
+    body { background: #0a0a0f; color: #ededf2; }
+    ::selection { background: #8b7df7; color: #0a0a0f; }
+  }
+  @media (max-width: 640px) {
+    body { font-size: 18px; }
+    main { padding: 40px 20px 64px; }
+  }
 `.trim();
 
 /**

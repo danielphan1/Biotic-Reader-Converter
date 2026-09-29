@@ -1,48 +1,193 @@
-/* globals.css — Apple-minimal tokens inherited verbatim from 05-UI-SPEC (D-10).
-   Phase 1 CONSUMES these tokens; it does not invent new ones. The nine reserved
-   token names below are the contract every Phase-1 surface is built against so
-   Phase 4 dark/sepia palettes can override them without touching components. */
+/* globals.css — the "biotic" visual world: dark-first, luminous accent, one
+   reading surface that is meant to be lived in.
+
+   Token contract (unchanged names from the original spec, extended): components
+   never hard-code a color. Every --color-* below is redefined per theme further
+   down, so dark <-> light is a variable swap, not a component edit. */
 @import "tailwindcss";
 
 @theme {
-  /* Surfaces */
-  --color-surface: #ffffff;
-  --color-surface-secondary: #f5f5f7;
-  --color-border-hairline: #d2d2d7;
+  /* --- Surfaces (dark is the default world) --- */
+  --color-canvas: #0a0a0f;
+  --color-surface: #121218;
+  --color-surface-secondary: #16161d;
+  --color-surface-inset: #0d0d12;
 
-  /* Text */
-  --color-text-primary: #1d1d1f;
-  --color-text-muted: #6e6e73;
+  /* Hairline = decorative separation. Strong = the edge of an actual control
+     (input, button, segment) and therefore held at >= 3:1 against its bed. */
+  --color-border-hairline: #262630;
+  --color-border-strong: #66667a;
 
-  /* Accent (reserved for Convert CTA, focus ring, active toggle, links) */
-  --color-accent: #0071e3;
-  --color-accent-hover: #0077ed;
+  /* --- Text --- */
+  --color-text-primary: #ededf2;
+  --color-text-secondary: #a8a8b8;
+  --color-text-muted: #8a8a9e;
 
-  /* Destructive — declared for cross-phase consistency; unused in Phase 1 */
-  --color-destructive: #ff3b30;
+  /* --- Accent --- */
+  --color-accent: #8b7df7;
+  --color-accent-hover: #a094ff;
+  --color-accent-contrast: #0a0a0f; /* text ON an accent fill — 6.0:1 */
+  --color-accent-soft: #1a1730;     /* tinted bed for accent chips */
 
-  /* Focus ring — derived from accent, visible >= 3:1 against surface */
-  --color-focus-ring: #0071e3;
+  --color-destructive: #ff6b6b;
+  --color-destructive-contrast: #0a0a0f;
 
-  /* System UI font stack (no embedded fonts; OpenDyslexic is Phase 4) */
-  --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --color-focus-ring: #8b7df7;
+
+  /* --- Type --- */
+  --font-sans: var(--font-geist), ui-sans-serif, system-ui, sans-serif;
+  --font-display: var(--font-instrument-serif), ui-serif, Georgia, serif;
+
+  /* --- Radii --- */
+  --radius-sm: 0.5rem;
+  --radius-md: 0.75rem;
+  --radius-lg: 1rem;
+  --radius-xl: 1.25rem;
+  --radius-2xl: 1.75rem;
+
+  /* --- Depth: every shadow carries an offset AND a soft blur --- */
+  --shadow-panel: 0 1px 2px rgb(0 0 0 / 0.5), 0 16px 40px -16px rgb(0 0 0 / 0.85);
+  --shadow-raised: 0 1px 1px rgb(0 0 0 / 0.4), 0 8px 20px -10px rgb(0 0 0 / 0.7);
+  --shadow-accent: 0 2px 6px -1px rgb(10 10 15 / 0.6), 0 12px 28px -12px rgb(139 125 247 / 0.55);
 }
 
+/* ---------- Light theme ---------- *
+   Applied when the OS asks for light and the visitor has not pinned dark.
+   The explicit [data-theme] rules below win by source order. */
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme="dark"]) {
+    --color-canvas: #fbfbfd;
+    --color-surface: #ffffff;
+    --color-surface-secondary: #f3f3f7;
+    --color-surface-inset: #ffffff;
+    --color-border-hairline: #e4e4ec;
+    --color-border-strong: #868699;
+    --color-text-primary: #14141a;
+    --color-text-secondary: #55555f;
+    --color-text-muted: #6a6a78;
+    --color-accent: #5b4be0;
+    --color-accent-hover: #4a39d4;
+    --color-accent-contrast: #ffffff;
+    --color-accent-soft: #eeecfd;
+    --color-destructive: #c4342b;
+    --color-destructive-contrast: #ffffff;
+    --color-focus-ring: #5b4be0;
+    --shadow-panel: 0 1px 2px rgb(20 20 26 / 0.06), 0 16px 40px -16px rgb(20 20 26 / 0.18);
+    --shadow-raised: 0 1px 1px rgb(20 20 26 / 0.05), 0 8px 20px -10px rgb(20 20 26 / 0.14);
+    --shadow-accent: 0 2px 6px -1px rgb(20 20 26 / 0.12), 0 12px 28px -12px rgb(91 75 224 / 0.45);
+  }
+}
+
+:root[data-theme="light"] {
+  --color-canvas: #fbfbfd;
+  --color-surface: #ffffff;
+  --color-surface-secondary: #f3f3f7;
+  --color-surface-inset: #ffffff;
+  --color-border-hairline: #e4e4ec;
+  --color-border-strong: #868699;
+  --color-text-primary: #14141a;
+  --color-text-secondary: #55555f;
+  --color-text-muted: #6a6a78;
+  --color-accent: #5b4be0;
+  --color-accent-hover: #4a39d4;
+  --color-accent-contrast: #ffffff;
+  --color-accent-soft: #eeecfd;
+  --color-destructive: #c4342b;
+  --color-destructive-contrast: #ffffff;
+  --color-focus-ring: #5b4be0;
+  --shadow-panel: 0 1px 2px rgb(20 20 26 / 0.06), 0 16px 40px -16px rgb(20 20 26 / 0.18);
+  --shadow-raised: 0 1px 1px rgb(20 20 26 / 0.05), 0 8px 20px -10px rgb(20 20 26 / 0.14);
+  --shadow-accent: 0 2px 6px -1px rgb(20 20 26 / 0.12), 0 12px 28px -12px rgb(91 75 224 / 0.45);
+}
+
+:root { color-scheme: dark; }
+:root[data-theme="light"] { color-scheme: light; }
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme="dark"]) { color-scheme: light; }
+}
+
+/* ---------- Base ---------- */
 html {
-  color-scheme: light;
+  scroll-behavior: smooth;
+  -webkit-text-size-adjust: 100%;
+}
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
 }
 
 body {
-  background: var(--color-surface);
+  background: var(--color-canvas);
   color: var(--color-text-primary);
   font-family: var(--font-sans);
-  font-size: 16px;
-  line-height: 1.5;
+  font-size: 1rem;
+  line-height: 1.6;
   -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
 }
 
-/* Visible focus ring for keyboard users across all focusable controls */
+/* ---------- The surfaces the browser draws for us ----------
+   Selection, caret, scrollbars and focus rings ship with defaults that belong to
+   no design system. They get the palette too. */
+::selection {
+  background: var(--color-accent);
+  color: var(--color-accent-contrast);
+}
+
+textarea,
+input {
+  caret-color: var(--color-accent);
+}
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-border-strong) transparent;
+}
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb {
+  background: var(--color-border-strong);
+  border: 3px solid var(--color-canvas);
+  border-radius: 999px;
+}
+::-webkit-scrollbar-thumb:hover { background: var(--color-text-muted); }
+
 :focus-visible {
   outline: 2px solid var(--color-focus-ring);
-  outline-offset: 2px;
+  outline-offset: 3px;
+  border-radius: var(--radius-sm);
+}
+
+a {
+  text-underline-offset: 0.2em;
+  text-decoration-thickness: from-font;
+}
+
+/* Numerals in progress counters must not jitter as they tick. */
+.tabular { font-variant-numeric: tabular-nums; }
+
+/* ---------- The one authored moment ----------
+   On load the hero sentence bolds its own fixation points, left to right — the
+   product demonstrating itself before a single word of explanation. Only opacity
+   and filter animate, so no text reflows mid-sweep. */
+@keyframes fixation-in {
+  from { opacity: 0.32; filter: blur(2.5px); }
+  to   { opacity: 1; filter: blur(0); }
+}
+
+.fixation-sweep b {
+  animation: fixation-in 0.5s cubic-bezier(0.16, 1, 0.3, 1) backwards;
+  animation-delay: calc(var(--i, 0) * 26ms);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .fixation-sweep b { animation: none; }
+}
+
+/* Hero glow — a single soft accent bloom behind the headline, not a gradient
+   painted over the type. */
+.hero-glow {
+  background:
+    radial-gradient(60% 55% at 18% 0%, color-mix(in oklab, var(--color-accent) 26%, transparent) 0%, transparent 70%),
+    radial-gradient(45% 45% at 88% 12%, color-mix(in oklab, var(--color-accent) 14%, transparent) 0%, transparent 72%);
 }

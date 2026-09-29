@@ -28,16 +28,26 @@ export function ExtractProgress({
   const label = indeterminate ? "Reading document…" : `Extracting page ${page} of ${total}`;
 
   return (
-    <div className="flex flex-col gap-3">
-      <p role="status" className="text-[14px] font-medium leading-[1.4] text-text-primary">
-        {label}
-      </p>
+    <div className="flex flex-col gap-4">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <p role="status" className="tabular text-[14px] font-medium text-text-primary">
+          {label}
+        </p>
+        <button
+          type="button"
+          onClick={onCancel}
+          className="inline-flex min-h-11 items-center rounded-full border border-border-strong px-5 text-[14px] font-medium text-destructive transition-colors hover:bg-surface-secondary"
+        >
+          Cancel
+        </button>
+      </div>
+
       {indeterminate ? (
         <div
           role="progressbar"
           aria-valuetext={label}
           aria-label={label}
-          className="h-2 w-full overflow-hidden rounded-full bg-surface-secondary"
+          className="h-1.5 w-full overflow-hidden rounded-full bg-surface-secondary"
         >
           <div className="h-full w-full rounded-full bg-accent animate-pulse" />
         </div>
@@ -48,21 +58,14 @@ export function ExtractProgress({
           aria-valuemin={0}
           aria-valuemax={total}
           aria-label={label}
-          className="h-2 w-full overflow-hidden rounded-full bg-surface-secondary"
+          className="h-1.5 w-full overflow-hidden rounded-full bg-surface-secondary"
         >
           <div
-            className="h-full rounded-full bg-accent transition-[width] duration-200"
+            className="h-full rounded-full bg-accent transition-[width] duration-300 ease-out"
             style={{ width: `${pct}%` }}
           />
         </div>
       )}
-      <button
-        type="button"
-        onClick={onCancel}
-        className="min-h-[44px] w-fit rounded-lg bg-destructive px-6 text-[14px] leading-[1.4] text-white hover:opacity-90"
-      >
-        Cancel
-      </button>
     </div>
   );
 }
